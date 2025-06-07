@@ -213,7 +213,6 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
   Widget build(BuildContext context) {
     final shiftAsync = ref.watch(currentShiftProvider(widget.employee.id));
     final summaryAsync = ref.watch(monthlySummaryProvider(widget.employee.id));
-    final db = ref.read(dbProvider);
 
     // Проверяем, есть ли активная смена и началась ли она сегодня
     final currentShift = shiftAsync.asData?.value;
@@ -230,7 +229,7 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
             PopupMenuButton<String>(
               onSelected: (String result) {
                 if (result == 'editShift') {
-                  _showEditShiftDialog(context, currentShift!, db);
+                  _showEditShiftDialog(context, currentShift!);
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -316,11 +315,11 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
   }
 
   // Новый метод для показа диалога редактирования смены
-  void _showEditShiftDialog(BuildContext context, Shift shift, AppDatabase db) {
+  void _showEditShiftDialog(BuildContext context, Shift shift) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return EditShiftDialog(shift: shift, db: db);
+        return EditShiftDialog(shift: shift);
       },
     );
   }
