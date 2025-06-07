@@ -4,6 +4,8 @@ import 'package:workmanager/workmanager.dart';
 import 'package:admin_shift_app/presentation/screens.dart';
 import 'package:admin_shift_app/data/db/app_database.dart'; // Импорт AppDatabase
 import 'package:drift/drift.dart'; // Явный импорт drift для операторов
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -48,6 +50,8 @@ void callbackDispatcher() {
 
 Future<void> main() async { // Изменено на Future<void>
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ru');
+  Intl.defaultLocale = 'ru';
   await Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: true, // Изменено на true для отладки workmanager
