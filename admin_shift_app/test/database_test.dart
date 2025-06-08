@@ -16,6 +16,22 @@ void main() {
     expect(shift.overtimeMin, 120); // 2h × 60
   });
 
+  test('multiple shifts per day are aggregated with rounding', () async {
+    final empId = await db.createEmployee(EmployeesCompanion(name: Value('Multi')));
+    final id1 = await db.startShift(empId, DateTime.utc(2025, 6, 6, 8));
+    await db.endShift(id1, DateTime.utc(2025, 6, 6, 12)); // 4h
+    final id2 = await db.startShift(empId, DateTime.utc(2025, 6, 6, 13));
+    await db.endShift(id2, DateTime.utc(2025, 6, 6, 17, 5)); // 4h05m -> total 8h05m
+
+    final shifts = await (db.select(db.shifts)
+          ..where((t) => t.employeeId.equals(empId)))
+        .get();
+
+    // overtime should be rounded to 0 because difference is less than 10 min
+    final overtime = shifts.fold<int>(0, (p, s) => p + s.overtimeMin);
+    expect(overtime, 0);
+  });
+
   test('absence created when no shift', () async {
     final db = AppDatabase();
     final emp = await db.createEmployee(EmployeesCompanion(name: Value('NoShow')));

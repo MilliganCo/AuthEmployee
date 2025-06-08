@@ -93,14 +93,47 @@ class AppDatabase extends _$AppDatabase {
   Future<void> endShift(int shiftId, DateTime endUtc) async {
     final s = await (select(shifts)..where((t) => t.id.equals(shiftId)))
         .getSingle();
+
     final minutes = endUtc.difference(s.start).inMinutes;
-    final overtime = minutes - 540;            // 9 h × 60
+
+    // Update end and duration for the shift itself first
     await (update(shifts)..where((t) => t.id.equals(shiftId))).write(
       ShiftsCompanion(
         end: Value(endUtc),
         durationMin: Value(minutes),
-        overtimeMin: Value(overtime),
       ),
+    );
+
+    // Recalculate overtime for all shifts of that employee on the same day
+    final dayStart = DateTime.utc(s.start.year, s.start.month, s.start.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    final dayShifts = await (select(shifts)
+          ..where((tbl) => tbl.employeeId.equals(s.employeeId) &
+              tbl.start.isBiggerOrEqualValue(dayStart) &
+              tbl.start.isSmallerThanValue(dayEnd) &
+              tbl.end.isNotNull()))
+        .get();
+
+    if (dayShifts.isEmpty) return; // should not happen, but guard
+
+    final totalMinutes =
+        dayShifts.fold<int>(0, (prev, sh) => prev + sh.durationMin);
+    int overtime = totalMinutes - 540; // 9h * 60
+    if (overtime.abs() <= 10) overtime = 0; // rounding +/- 10 minutes
+
+    // Clear previous overtime values for the day
+    await (update(shifts)
+          ..where((tbl) => tbl.employeeId.equals(s.employeeId) &
+              tbl.start.isBiggerOrEqualValue(dayStart) &
+              tbl.start.isSmallerThanValue(dayEnd)))
+        .write(const ShiftsCompanion(overtimeMin: Value(0)));
+
+    // Assign overtime to the last shift of the day
+    dayShifts.sort((a, b) => a.end!.compareTo(b.end!));
+    final lastShift = dayShifts.last;
+    await (update(shifts)..where((t) => t.id.equals(lastShift.id))).write(
+      ShiftsCompanion(overtimeMin: Value(overtime)),
     );
   }
 
