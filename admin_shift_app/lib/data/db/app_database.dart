@@ -74,9 +74,15 @@ class AppDatabase extends _$AppDatabase {
 
   // --------------- SHIFTS
   Future<Shift?> currentOpenShift(int empId) =>
-      (select(shifts) 
+      (select(shifts)
             ..where((tbl) => tbl.employeeId.equals(empId) & tbl.end.isNull()))
           .getSingleOrNull();
+
+  /// Stream of open shift to react to DB changes
+  Stream<Shift?> watchCurrentOpenShift(int empId) =>
+      (select(shifts)
+            ..where((tbl) => tbl.employeeId.equals(empId) & tbl.end.isNull()))
+          .watchSingleOrNull();
 
   Future<int> startShift(int empId, DateTime startUtc) =>
       into(shifts).insert(ShiftsCompanion.insert(
