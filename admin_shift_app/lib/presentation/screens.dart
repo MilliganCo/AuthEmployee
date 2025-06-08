@@ -55,13 +55,18 @@ final currentShiftProvider = StreamProvider.family<Shift?, int>((ref, empId) {
 /// Detailed daily record for a month
 class DailyRecord {
   final DateTime date;
-  final Shift? shift;
+  final List<Shift> shifts;
   final bool absent;
 
-  const DailyRecord({required this.date, this.shift, required this.absent});
+  const DailyRecord({required this.date, required this.shifts, required this.absent});
 
-  double get overtimeHours => (shift?.overtimeMin ?? 0) / 60;
-  double get workHours => (shift?.durationMin ?? 0) / 60;
+  int get totalMinutes => shifts.fold<int>(0, (p, s) => p + s.durationMin);
+  double get workHours => totalMinutes / 60;
+  double get overtimeHours =>
+      shifts.isEmpty ? 0 : shifts.last.overtimeMin / 60;
+  DateTime? get firstStart => shifts.isEmpty ? null : shifts.first.start;
+  DateTime? get lastEnd =>
+      shifts.isNotEmpty ? shifts.last.end : null;
   bool get isWeekend =>
       date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
   double get salaryDeviation => overtimeHours - (absent ? 9 : 0);
@@ -88,17 +93,21 @@ final dailyRecordsProvider =
 
   return Rx.combineLatest2<List<Shift>, List<Absence>, List<DailyRecord>>(
       shiftsStream, absencesStream, (shifts, absences) {
-    final mapShift = {
-      for (final s in shifts)
-        DateTime.utc(s.start.year, s.start.month, s.start.day): s
-    };
+    final mapShifts = <DateTime, List<Shift>>{};
+    for (final s in shifts) {
+      final d = DateTime.utc(s.start.year, s.start.month, s.start.day);
+      mapShifts.putIfAbsent(d, () => []).add(s);
+    }
+    for (final list in mapShifts.values) {
+      list.sort((a, b) => a.start.compareTo(b.start));
+    }
     final absenceDates = absences.map((a) => a.date).toSet();
     final records = <DailyRecord>[];
     for (var day = first; day.isBefore(next); day = day.add(const Duration(days: 1))) {
       final d = DateTime.utc(day.year, day.month, day.day);
       records.add(DailyRecord(
         date: d,
-        shift: mapShift[d],
+        shifts: mapShifts[d] ?? [],
         absent: absenceDates.contains(d),
       ));
     }
@@ -477,11 +486,11 @@ class EmployeeDaysScreen extends ConsumerWidget {
             for (final r in records)
               DataRow(cells: [
                 DataCell(Text(DateFormat('dd.MM').format(r.date.toLocal()))),
-                DataCell(Text(r.shift != null
-                    ? DateFormat.Hm().format(r.shift!.start.toLocal())
+                DataCell(Text(r.firstStart != null
+                    ? DateFormat.Hm().format(r.firstStart!.toLocal())
                     : '')),
-                DataCell(Text(r.shift?.end != null
-                    ? DateFormat.Hm().format(r.shift!.end!.toLocal())
+                DataCell(Text(r.lastEnd != null
+                    ? DateFormat.Hm().format(r.lastEnd!.toLocal())
                     : '')),
                 DataCell(Text(r.overtimeHours.toStringAsFixed(1))),
                 DataCell(Text(r.absent ? 'Да' : '')),
