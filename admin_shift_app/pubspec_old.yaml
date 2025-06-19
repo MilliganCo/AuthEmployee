@@ -1,0 +1,8 @@
+path_provider: ^2.1.5
+share_plus: ^11.0.0
+syncfusion_flutter_xlsio: ^29.2.9
+rxdart: ^0.28.0
+sqlite3_flutter_libs: ^0.5.34
+
+dev_dependencies:
+  flutter_test: 

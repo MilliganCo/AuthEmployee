@@ -39,6 +39,7 @@ class $EmployeesTable extends Employees
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   @override
   List<GeneratedColumn> get $columns => [id, name, phone];
@@ -960,6 +961,15 @@ class $CommentsTable extends Comments
       'REFERENCES employees (id) ON DELETE CASCADE',
     ),
   );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -972,12 +982,26 @@ class $CommentsTable extends Comments
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _manualOvertimeAdjustmentMinMeta =
+      const VerificationMeta('manualOvertimeAdjustmentMin');
+  @override
+  late final GeneratedColumn<int> manualOvertimeAdjustmentMin =
+      GeneratedColumn<int>(
+        'manual_overtime_adjustment_min',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     commentText,
     employeeId,
+    date,
     createdAt,
+    manualOvertimeAdjustmentMin,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1013,10 +1037,27 @@ class $CommentsTable extends Comments
     } else if (isInserting) {
       context.missing(_employeeIdMeta);
     }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('manual_overtime_adjustment_min')) {
+      context.handle(
+        _manualOvertimeAdjustmentMinMeta,
+        manualOvertimeAdjustmentMin.isAcceptableOrUnknown(
+          data['manual_overtime_adjustment_min']!,
+          _manualOvertimeAdjustmentMinMeta,
+        ),
       );
     }
     return context;
@@ -1024,6 +1065,10 @@ class $CommentsTable extends Comments
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {employeeId, date},
+  ];
   @override
   EmployeeComment map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1043,10 +1088,20 @@ class $CommentsTable extends Comments
             DriftSqlType.int,
             data['${effectivePrefix}employee_id'],
           )!,
+      date:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}date'],
+          )!,
       createdAt:
           attachedDatabase.typeMapping.read(
             DriftSqlType.dateTime,
             data['${effectivePrefix}created_at'],
+          )!,
+      manualOvertimeAdjustmentMin:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.int,
+            data['${effectivePrefix}manual_overtime_adjustment_min'],
           )!,
     );
   }
@@ -1061,12 +1116,16 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
   final int id;
   final String commentText;
   final int employeeId;
+  final DateTime date;
   final DateTime createdAt;
+  final int manualOvertimeAdjustmentMin;
   const EmployeeComment({
     required this.id,
     required this.commentText,
     required this.employeeId,
+    required this.date,
     required this.createdAt,
+    required this.manualOvertimeAdjustmentMin,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1074,7 +1133,11 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
     map['id'] = Variable<int>(id);
     map['comment_text'] = Variable<String>(commentText);
     map['employee_id'] = Variable<int>(employeeId);
+    map['date'] = Variable<DateTime>(date);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['manual_overtime_adjustment_min'] = Variable<int>(
+      manualOvertimeAdjustmentMin,
+    );
     return map;
   }
 
@@ -1083,7 +1146,9 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
       id: Value(id),
       commentText: Value(commentText),
       employeeId: Value(employeeId),
+      date: Value(date),
       createdAt: Value(createdAt),
+      manualOvertimeAdjustmentMin: Value(manualOvertimeAdjustmentMin),
     );
   }
 
@@ -1096,7 +1161,11 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
       id: serializer.fromJson<int>(json['id']),
       commentText: serializer.fromJson<String>(json['commentText']),
       employeeId: serializer.fromJson<int>(json['employeeId']),
+      date: serializer.fromJson<DateTime>(json['date']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      manualOvertimeAdjustmentMin: serializer.fromJson<int>(
+        json['manualOvertimeAdjustmentMin'],
+      ),
     );
   }
   @override
@@ -1106,7 +1175,11 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
       'id': serializer.toJson<int>(id),
       'commentText': serializer.toJson<String>(commentText),
       'employeeId': serializer.toJson<int>(employeeId),
+      'date': serializer.toJson<DateTime>(date),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'manualOvertimeAdjustmentMin': serializer.toJson<int>(
+        manualOvertimeAdjustmentMin,
+      ),
     };
   }
 
@@ -1114,12 +1187,17 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
     int? id,
     String? commentText,
     int? employeeId,
+    DateTime? date,
     DateTime? createdAt,
+    int? manualOvertimeAdjustmentMin,
   }) => EmployeeComment(
     id: id ?? this.id,
     commentText: commentText ?? this.commentText,
     employeeId: employeeId ?? this.employeeId,
+    date: date ?? this.date,
     createdAt: createdAt ?? this.createdAt,
+    manualOvertimeAdjustmentMin:
+        manualOvertimeAdjustmentMin ?? this.manualOvertimeAdjustmentMin,
   );
   EmployeeComment copyWithCompanion(CommentsCompanion data) {
     return EmployeeComment(
@@ -1128,7 +1206,12 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
           data.commentText.present ? data.commentText.value : this.commentText,
       employeeId:
           data.employeeId.present ? data.employeeId.value : this.employeeId,
+      date: data.date.present ? data.date.value : this.date,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      manualOvertimeAdjustmentMin:
+          data.manualOvertimeAdjustmentMin.present
+              ? data.manualOvertimeAdjustmentMin.value
+              : this.manualOvertimeAdjustmentMin,
     );
   }
 
@@ -1138,13 +1221,22 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
           ..write('id: $id, ')
           ..write('commentText: $commentText, ')
           ..write('employeeId: $employeeId, ')
-          ..write('createdAt: $createdAt')
+          ..write('date: $date, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('manualOvertimeAdjustmentMin: $manualOvertimeAdjustmentMin')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, commentText, employeeId, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    commentText,
+    employeeId,
+    date,
+    createdAt,
+    manualOvertimeAdjustmentMin,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1152,38 +1244,53 @@ class EmployeeComment extends DataClass implements Insertable<EmployeeComment> {
           other.id == this.id &&
           other.commentText == this.commentText &&
           other.employeeId == this.employeeId &&
-          other.createdAt == this.createdAt);
+          other.date == this.date &&
+          other.createdAt == this.createdAt &&
+          other.manualOvertimeAdjustmentMin ==
+              this.manualOvertimeAdjustmentMin);
 }
 
 class CommentsCompanion extends UpdateCompanion<EmployeeComment> {
   final Value<int> id;
   final Value<String> commentText;
   final Value<int> employeeId;
+  final Value<DateTime> date;
   final Value<DateTime> createdAt;
+  final Value<int> manualOvertimeAdjustmentMin;
   const CommentsCompanion({
     this.id = const Value.absent(),
     this.commentText = const Value.absent(),
     this.employeeId = const Value.absent(),
+    this.date = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.manualOvertimeAdjustmentMin = const Value.absent(),
   });
   CommentsCompanion.insert({
     this.id = const Value.absent(),
     required String commentText,
     required int employeeId,
+    required DateTime date,
     this.createdAt = const Value.absent(),
+    this.manualOvertimeAdjustmentMin = const Value.absent(),
   }) : commentText = Value(commentText),
-       employeeId = Value(employeeId);
+       employeeId = Value(employeeId),
+       date = Value(date);
   static Insertable<EmployeeComment> custom({
     Expression<int>? id,
     Expression<String>? commentText,
     Expression<int>? employeeId,
+    Expression<DateTime>? date,
     Expression<DateTime>? createdAt,
+    Expression<int>? manualOvertimeAdjustmentMin,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (commentText != null) 'comment_text': commentText,
       if (employeeId != null) 'employee_id': employeeId,
+      if (date != null) 'date': date,
       if (createdAt != null) 'created_at': createdAt,
+      if (manualOvertimeAdjustmentMin != null)
+        'manual_overtime_adjustment_min': manualOvertimeAdjustmentMin,
     });
   }
 
@@ -1191,13 +1298,18 @@ class CommentsCompanion extends UpdateCompanion<EmployeeComment> {
     Value<int>? id,
     Value<String>? commentText,
     Value<int>? employeeId,
+    Value<DateTime>? date,
     Value<DateTime>? createdAt,
+    Value<int>? manualOvertimeAdjustmentMin,
   }) {
     return CommentsCompanion(
       id: id ?? this.id,
       commentText: commentText ?? this.commentText,
       employeeId: employeeId ?? this.employeeId,
+      date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
+      manualOvertimeAdjustmentMin:
+          manualOvertimeAdjustmentMin ?? this.manualOvertimeAdjustmentMin,
     );
   }
 
@@ -1213,8 +1325,16 @@ class CommentsCompanion extends UpdateCompanion<EmployeeComment> {
     if (employeeId.present) {
       map['employee_id'] = Variable<int>(employeeId.value);
     }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (manualOvertimeAdjustmentMin.present) {
+      map['manual_overtime_adjustment_min'] = Variable<int>(
+        manualOvertimeAdjustmentMin.value,
+      );
     }
     return map;
   }
@@ -1225,7 +1345,9 @@ class CommentsCompanion extends UpdateCompanion<EmployeeComment> {
           ..write('id: $id, ')
           ..write('commentText: $commentText, ')
           ..write('employeeId: $employeeId, ')
-          ..write('createdAt: $createdAt')
+          ..write('date: $date, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('manualOvertimeAdjustmentMin: $manualOvertimeAdjustmentMin')
           ..write(')'))
         .toString();
   }
@@ -2335,14 +2457,18 @@ typedef $$CommentsTableCreateCompanionBuilder =
       Value<int> id,
       required String commentText,
       required int employeeId,
+      required DateTime date,
       Value<DateTime> createdAt,
+      Value<int> manualOvertimeAdjustmentMin,
     });
 typedef $$CommentsTableUpdateCompanionBuilder =
     CommentsCompanion Function({
       Value<int> id,
       Value<String> commentText,
       Value<int> employeeId,
+      Value<DateTime> date,
       Value<DateTime> createdAt,
+      Value<int> manualOvertimeAdjustmentMin,
     });
 
 final class $$CommentsTableReferences
@@ -2388,8 +2514,18 @@ class $$CommentsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get manualOvertimeAdjustmentMin => $composableBuilder(
+    column: $table.manualOvertimeAdjustmentMin,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2436,8 +2572,18 @@ class $$CommentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get manualOvertimeAdjustmentMin => $composableBuilder(
+    column: $table.manualOvertimeAdjustmentMin,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2482,8 +2628,16 @@ class $$CommentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get manualOvertimeAdjustmentMin => $composableBuilder(
+    column: $table.manualOvertimeAdjustmentMin,
+    builder: (column) => column,
+  );
 
   $$EmployeesTableAnnotationComposer get employeeId {
     final $$EmployeesTableAnnotationComposer composer = $composerBuilder(
@@ -2540,24 +2694,32 @@ class $$CommentsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> commentText = const Value.absent(),
                 Value<int> employeeId = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int> manualOvertimeAdjustmentMin = const Value.absent(),
               }) => CommentsCompanion(
                 id: id,
                 commentText: commentText,
                 employeeId: employeeId,
+                date: date,
                 createdAt: createdAt,
+                manualOvertimeAdjustmentMin: manualOvertimeAdjustmentMin,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String commentText,
                 required int employeeId,
+                required DateTime date,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int> manualOvertimeAdjustmentMin = const Value.absent(),
               }) => CommentsCompanion.insert(
                 id: id,
                 commentText: commentText,
                 employeeId: employeeId,
+                date: date,
                 createdAt: createdAt,
+                manualOvertimeAdjustmentMin: manualOvertimeAdjustmentMin,
               ),
           withReferenceMapper:
               (p0) =>

@@ -6,6 +6,8 @@ import 'package:admin_shift_app/data/db/app_database.dart'; // Импорт AppD
 import 'package:drift/drift.dart'; // Явный импорт drift для операторов
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb; // Добавляем импорт для kIsWeb
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -21,14 +23,21 @@ void callbackDispatcher() {
     final emps = await db.select(db.employees).get();
     for (final e in emps) {
       // Проверяем, была ли смена у сотрудника вчера
-      final startOfYesterdayUtc = DateTime.utc(yesterday.year, yesterday.month, yesterday.day);
-      final endOfYesterdayUtc = startOfYesterdayUtc.add(const Duration(days: 1));
+      final startOfYesterdayUtc = DateTime.utc(
+        yesterday.year,
+        yesterday.month,
+        yesterday.day,
+      );
+      final endOfYesterdayUtc = startOfYesterdayUtc.add(
+        const Duration(days: 1),
+      );
 
-      final queryShifts = db.select(db.shifts)
-        ..where(
-            (s) => s.employeeId.equals(e.id) &
-                   s.start.isBiggerOrEqualValue(startOfYesterdayUtc) &
-                   s.start.isSmallerThanValue(endOfYesterdayUtc));
+      final queryShifts = db.select(db.shifts)..where(
+        (s) =>
+            s.employeeId.equals(e.id) &
+            s.start.isBiggerOrEqualValue(startOfYesterdayUtc) &
+            s.start.isSmallerThanValue(endOfYesterdayUtc),
+      );
 
       final hadShift = await queryShifts.getSingleOrNull();
 
@@ -48,28 +57,38 @@ void callbackDispatcher() {
   });
 }
 
-Future<void> main() async { // Изменено на Future<void>
+Future<void> main() async {
+  // Изменено на Future<void>
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ru');
   Intl.defaultLocale = 'ru';
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: true, // Изменено на true для отладки workmanager
-  );
-  await Workmanager().registerPeriodicTask(
-    'absenceScanner',
-    'scanAbsences',
-    frequency: const Duration(hours: 24),
-    initialDelay: _delayTo00h05(),
-    existingWorkPolicy: ExistingWorkPolicy.keep,
-  );
+
+  if (!kIsWeb) {
+    // Условное выполнение только для не-веб платформ
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: true, // Изменено на true для отладки workmanager
+    );
+    await Workmanager().registerPeriodicTask(
+      'absenceScanner',
+      'scanAbsences',
+      frequency: const Duration(hours: 24),
+      initialDelay: _delayTo00h05(),
+      existingWorkPolicy: ExistingWorkPolicy.keep,
+    );
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
 Duration _delayTo00h05() {
   final now = DateTime.now();
   // Устанавливаем целевое время на 00:05 следующего дня в локальном времени
-  final tomorrowAt0005 = DateTime(now.year, now.month, now.day).add(const Duration(days: 1, minutes: 5));
+  final tomorrowAt0005 = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).add(const Duration(days: 1, minutes: 5));
   // Если текущее время уже после 00:05, планируем на следующий день через один
   if (now.isAfter(tomorrowAt0005)) {
     return tomorrowAt0005.add(const Duration(days: 1)).difference(now);
